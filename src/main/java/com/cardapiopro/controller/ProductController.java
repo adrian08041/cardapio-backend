@@ -2,6 +2,7 @@ package com.cardapiopro.controller;
 
 import com.cardapiopro.dto.request.CreateProductRequest;
 import com.cardapiopro.dto.request.UpdateProductRequest;
+import com.cardapiopro.dto.response.AddonCategoryResponse;
 import com.cardapiopro.dto.response.ErrorResponse;
 import com.cardapiopro.dto.response.ProductResponse;
 import com.cardapiopro.entity.Product;
@@ -187,4 +188,31 @@ public class ProductController {
                 productService.delete(id);
                 return ResponseEntity.noContent().build();
         }
+
+    @Operation(summary = "Vincular categoria de addon ao produto")
+    @PostMapping("/{productId}/addon-categories/{addonCategoryId}")
+    public ResponseEntity<Void> addAddonCategory(
+            @PathVariable UUID productId,
+            @PathVariable UUID addonCategoryId) {
+        productService.addAddonCategory(productId, addonCategoryId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+    @Operation(summary = "Remover categoria de addon do produto")
+    @DeleteMapping("/{productId}/addon-categories/{addonCategoryId}")
+    public ResponseEntity<Void> removeAddonCategory(
+            @PathVariable UUID productId,
+            @PathVariable UUID addonCategoryId) {
+        productService.removeAddonCategory(productId, addonCategoryId);
+        return ResponseEntity.noContent().build();
+    }
+    @Operation(summary = "Listar categorias de addon do produto")
+    @GetMapping("/{productId}/addon-categories")
+    public ResponseEntity<List<AddonCategoryResponse>> getAddonCategories(@PathVariable UUID productId) {
+        List<AddonCategoryResponse> categories = productService.getAddonCategories(productId)
+                .stream()
+                .map(AddonCategoryResponse::fromEntity)
+                .toList();
+        return ResponseEntity.ok(categories);
+    }
+
 }
