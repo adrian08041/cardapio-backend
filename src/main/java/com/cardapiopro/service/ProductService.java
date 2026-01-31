@@ -1,21 +1,28 @@
 package com.cardapiopro.service;
 
+import com.cardapiopro.entity.AddonCategory;
 import com.cardapiopro.entity.Category;
 import com.cardapiopro.entity.Product;
+import com.cardapiopro.entity.ProductAddonCategory;
 import com.cardapiopro.exception.ResourceNotFoundException;
+import com.cardapiopro.repository.ProductAddonCategoryRepository;
 import com.cardapiopro.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductAddonCategoryRepository productAddonCategoryRepository;
     private final CategoryService categoryService;
+    private final AddonCategoryService addonCategoryService;
 
     public List<Product> findAll() {
         return productRepository.findByActiveTrueAndAvailableTrueOrderByDisplayOrderAsc();
@@ -110,5 +117,50 @@ public class ProductService {
         Product product = findById(id);
         product.setActive(false);
         productRepository.save(product);
+    }
+
+    // ========================================
+    // Métodos para Addon Categories
+    // ========================================
+
+    public List<AddonCategory> getAddonCategories(UUID productId) {
+        findById(productId); // Valida se produto existe
+        return productAddonCategoryRepository.findByProductIdOrderByDisplayOrderAsc(productId)
+                .stream()
+                .map(ProductAddonCategory::getAddonCategory)
+                .toList();
+    }
+
+    @Transactional
+    public void addAddonCategory(UUID productId, UUID addonCategoryId) {
+        Product product = findById(productId);
+        AddonCategory addonCategory = addonCategoryService.findById(addonCategoryId);
+
+        // Verifica se já existe
+        if (productAddonCategoryRepository.existsByProductIdAndAddonCategoryId(productId, addonCategoryId)) {
+            throw new IllegalArgumentException("Esta categoria de adicional já está vinculada ao produto");
+        }
+
+        ProductAddonCategory link = ProductAddonCategory.builder()
+                .product(product)
+                .addonCategory(addonCategory)
+                .displayOrder(0)
+                .build();
+
+        productAddonCategoryRepository.save(link);
+    }
+
+    @Transactional
+    public void removeAddonCategory(UUID productId, UUID addonCategoryId) {
+        findById(productId); // Valida se produto existe
+
+        ProductAddonCategory link = productAddonCategoryRepository
+                .findByProductIdOrderByDisplayOrderAsc(productId)
+                .stream()
+                .filter(pac -> pac.getAddonCategory().getId().equals(addonCategoryId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Vínculo não encontrado"));
+
+        productAddonCategoryRepository.delete(link);
     }
 }

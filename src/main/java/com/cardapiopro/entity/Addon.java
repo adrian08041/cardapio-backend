@@ -6,45 +6,32 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
+
 @Entity
-@Table(name = "products")
+@Table(name = "addons")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Product {
+public class Addon {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 150)
+    @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 150)
-    private String slug;
-
-    @Column(length = 500)
+    @Column(length = 255)
     private String description;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
-    @Column(name = "promotional_price", precision = 10, scale = 2)
-    private BigDecimal promotionalPrice;
-
-    @Column(name = "image_url", length = 500)
-    private String imageUrl;
-
-    @Column(name = "preparation_time")
-    private Integer preparationTime;
-
-    @Column(name = "serves")
-    private Integer serves;
+    @Column(name = "max_quantity")
+    private Integer maxQuantity = 10;
 
     @Column(nullable = false)
     private boolean available = true;
@@ -55,10 +42,10 @@ public class Product {
     @Column(name = "display_order")
     private Integer displayOrder = 0;
 
-    // Relacionamento ManyToOne com Category
+    // Relacionamento: Addon pertence a uma categoria de addon
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    @JoinColumn(name = "addon_category_id")
+    private AddonCategory addonCategory;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
@@ -67,8 +54,4 @@ public class Product {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<ProductAddonCategory> addonCategories = new ArrayList<>();
 }
