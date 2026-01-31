@@ -1,0 +1,44 @@
+# ========================================
+# Docker Compose - Cardápio Pro Backend
+# ========================================
+#
+# COMO USAR:
+#   1. Inicie os containers: docker-compose up -d
+#   2. Verifique os logs: docker-compose logs -f
+#   3. Pare os containers: docker-compose down
+#
+# PORTAS:
+#   - PostgreSQL: 5432
+#   - PgAdmin: 5050 (interface web para o banco)
+# ========================================
+services:
+
+  # PostgreSQL - Banco de Dados
+  postgres:
+    image: postgres:15-alpine
+    container_name: cardapio-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cardapio
+      POSTGRES_PASSWORD: cardapio123
+      POSTGRES_DB: cardapio_pro
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  # PgAdmin - Interface Web para PostgreSQL
+  # Acesso: http://localhost:5050
+  # Login: admin@cardapio.com / admin123
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cardapio-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cardapio.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+volumes:
+  postgres_data:
