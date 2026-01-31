@@ -4,6 +4,7 @@ import com.cardapiopro.entity.*;
 import com.cardapiopro.entity.enums.OrderStatus;
 import com.cardapiopro.entity.enums.PaymentStatus;
 import com.cardapiopro.exception.ResourceNotFoundException;
+import com.cardapiopro.repository.CustomerRepository;
 import com.cardapiopro.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,8 @@ public class OrderService {
     private final ProductService productService;
     private final AddonService addonService;
     private final CouponService couponService;
+    private final CustomerRepository customerRepository;
+    private final LoyaltyService loyaltyService;
 
     public List<Order> findAll() {
         return orderRepository.findAll();
@@ -135,6 +138,14 @@ public class OrderService {
         validateStatusTransition(order.getStatus(), newStatus);
 
         order.setStatus(newStatus);
+
+        if (newStatus == OrderStatus.DELIVERED && order.getCustomer() != null) {
+            Customer customer = order.getCustomer();
+            customer.updateMetricsAfterOrder(order.getTotal());
+            customerRepository.save(customer);
+            loyaltyService.earnPoints(customer.getId(), order);
+        }
+
         return orderRepository.save(order);
     }
 
