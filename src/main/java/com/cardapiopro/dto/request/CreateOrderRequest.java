@@ -10,60 +10,47 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateOrderRequest(
-        @NotBlank(message = "Nome é obrigatório")
-        @Size(min = 2, max = 100)
-        String customerName,
+                @NotBlank(message = "Nome é obrigatório") @Size(min = 2, max = 100) String customerName,
 
-        @NotBlank(message = "Telefone é obrigatório")
-        @Size(min = 10, max = 20)
-        String customerPhone,
+                @NotBlank(message = "Telefone é obrigatório") @Size(min = 10, max = 20) String customerPhone,
 
-        @Email(message = "Email inválido")
-        String customerEmail,
+                @Email(message = "Email inválido") String customerEmail,
 
-        String deliveryAddress,
-        String deliveryComplement,
-        String deliveryNeighborhood,
+                String deliveryAddress,
+                String deliveryComplement,
+                String deliveryNeighborhood,
 
-        @NotNull(message = "Tipo do pedido é obrigatório")
-        OrderType orderType,
+                @NotNull(message = "Tipo do pedido é obrigatório") OrderType orderType,
 
-        @NotNull(message = "Forma de pagamento é obrigatória")
-        PaymentMethod paymentMethod,
+                @NotNull(message = "Forma de pagamento é obrigatória") PaymentMethod paymentMethod,
 
-        BigDecimal changeFor,
+                BigDecimal changeFor,
 
-        BigDecimal deliveryFee,
+                BigDecimal deliveryFee,
 
-        BigDecimal discount,
+                // Desconto
+                BigDecimal discount,
 
-        @Size(max = 500)
-        String notes,
+                // Código do Cupom (opcional)
+                String couponCode,
 
-        @NotEmpty(message = "Pedido deve ter pelo menos 1 item")
-        @Valid
-        List<OrderItemRequest> items
-) {
-    public record OrderItemRequest(
-            @NotNull(message = "Produto é obrigatório")
-            UUID productId,
+                // Observações
+                @Size(max = 500) String notes,
 
-            @NotNull(message = "Quantidade é obrigatória")
-            @Min(value = 1, message = "Quantidade mínima é 1")
-            Integer quantity,
+                @NotEmpty(message = "Pedido deve ter pelo menos 1 item") @Valid List<OrderItemRequest> items) {
+        public record OrderItemRequest(
+                        @NotNull(message = "Produto é obrigatório") UUID productId,
 
-            @Size(max = 300)
-            String notes,
+                        @NotNull(message = "Quantidade é obrigatória") @Min(value = 1, message = "Quantidade mínima é 1") Integer quantity,
 
-            List<OrderAddonRequest> addons
-    ) {}
+                        @Size(max = 300) String notes,
 
-    public record OrderAddonRequest(
-            @NotNull(message = "Addon é obrigatório")
-            UUID addonId,
+                        List<OrderAddonRequest> addons) {
+        }
 
-            @NotNull
-            @Min(1)
-            Integer quantity
-    ) {}
+        public record OrderAddonRequest(
+                        @NotNull(message = "Addon é obrigatório") UUID addonId,
+
+                        @NotNull @Min(1) Integer quantity) {
+        }
 }

@@ -56,7 +56,7 @@ public class Order {
     @Column(nullable = false)
     private OrderStatus status;
 
-
+    // Pagamento
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false)
     private PaymentMethod paymentMethod;
@@ -65,6 +65,12 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus;
 
+    // Cupom de desconto
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coupon_id")
+    private Coupon coupon;
+
+    // Valores
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
 
@@ -113,4 +119,5 @@ public class Order {
 
         this.total = this.subtotal.add(fee).subtract(disc);
     }
+
 }
