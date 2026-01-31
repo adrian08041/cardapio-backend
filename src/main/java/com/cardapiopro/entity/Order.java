@@ -39,6 +39,10 @@ public class Order {
     @Column(name = "customer_email", length = 100)
     private String customerEmail;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
     @Column(name = "delivery_address", length = 300)
     private String deliveryAddress;
 
@@ -56,7 +60,6 @@ public class Order {
     @Column(nullable = false)
     private OrderStatus status;
 
-    // Pagamento
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_method", nullable = false)
     private PaymentMethod paymentMethod;
@@ -65,12 +68,10 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus;
 
-    // Cupom de desconto
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coupon_id")
     private Coupon coupon;
 
-    // Valores
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal subtotal;
 

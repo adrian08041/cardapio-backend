@@ -45,6 +45,9 @@ public class Coupon {
     @Column(name = "usage_limit")
     private Integer usageLimit;
 
+    @Column(name = "max_uses_per_user")
+    private Integer maxUsesPerUser;
+
     @Column(name = "usage_count")
     @Builder.Default
     private Integer usageCount = 0;
