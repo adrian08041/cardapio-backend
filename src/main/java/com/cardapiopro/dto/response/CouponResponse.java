@@ -16,10 +16,10 @@ public record CouponResponse(
         BigDecimal minOrderValue,
         BigDecimal maxDiscountValue,
         Integer usageLimit,
+        Integer maxUsesPerUser,
         Integer usageCount,
         LocalDateTime expirationDate,
-        boolean isActive
-) {
+        boolean isActive) {
     public static CouponResponse fromEntity(Coupon coupon) {
         return new CouponResponse(
                 coupon.getId(),
@@ -30,9 +30,9 @@ public record CouponResponse(
                 coupon.getMinOrderValue(),
                 coupon.getMaxDiscountValue(),
                 coupon.getUsageLimit(),
+                coupon.getMaxUsesPerUser(),
                 coupon.getUsageCount(),
                 coupon.getExpirationDate(),
-                coupon.isActive()
-        );
+                coupon.isActive());
     }
 }
