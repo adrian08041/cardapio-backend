@@ -8,7 +8,7 @@ import com.cardapiopro.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +22,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final ProductService productService;
     private final AddonService addonService;
+    private final CouponService couponService;
 
     public List<Order> findAll() {
         return orderRepository.findAll();
@@ -55,7 +56,7 @@ public class OrderService {
     }
 
     @Transactional
-    public Order create(Order order, List<OrderItemRequest> itemRequests) {
+    public Order create(Order order, List<OrderItemRequest> itemRequests, String couponCode) {
         order.setOrderNumber(orderRepository.getNextOrderNumber());
         order.setStatus(OrderStatus.PENDING);
         order.setPaymentStatus(PaymentStatus.PENDING);
@@ -65,7 +66,26 @@ public class OrderService {
             order.addItem(item);
         }
 
+        BigDecimal subtotal = order.getItems().stream()
+                .map(OrderItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        order.setSubtotal(subtotal);
+
+        if (couponCode != null && !couponCode.isBlank()) {
+            BigDecimal discount = couponService.calculateDiscount(couponCode, subtotal);
+            Coupon coupon = couponService.findByCode(couponCode);
+
+            order.setDiscount(discount);
+            order.setCoupon(coupon);
+
+            couponService.incrementUsage(coupon.getId());
+        } else {
+            if (order.getDiscount() == null) {
+                order.setDiscount(BigDecimal.ZERO);
+            }
+        }
         order.calculateTotals();
+
         int estimatedTime = order.getItems().stream()
                 .mapToInt(item -> {
                     Integer prepTime = item.getProduct().getPreparationTime();
@@ -85,8 +105,7 @@ public class OrderService {
                 .product(product)
                 .productName(product.getName())
                 .quantity(request.quantity())
-                .unitPrice(product.getPromotionalPrice() != null ?
-                        product.getPromotionalPrice() : product.getPrice())
+                .unitPrice(product.getPromotionalPrice() != null ? product.getPromotionalPrice() : product.getPrice())
                 .notes(request.notes())
                 .build();
 
@@ -142,9 +161,8 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
-        order.setNotes(order.getNotes() != null ?
-                order.getNotes() + " | Cancelado: " + reason :
-                "Cancelado: " + reason);
+        order.setNotes(
+                order.getNotes() != null ? order.getNotes() + " | Cancelado: " + reason : "Cancelado: " + reason);
 
         return orderRepository.save(order);
     }
@@ -160,11 +178,11 @@ public class OrderService {
             UUID productId,
             Integer quantity,
             String notes,
-            List<OrderAddonRequest> addons
-    ) {}
+            List<OrderAddonRequest> addons) {
+    }
 
     public record OrderAddonRequest(
             UUID addonId,
-            Integer quantity
-    ) {}
+            Integer quantity) {
+    }
 }
