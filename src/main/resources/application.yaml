@@ -16,3 +16,9 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+# Configurações JWT
+jwt:
+  secret: ${JWT_SECRET:cardapiopro-secret-key-deve-ter-256-bits-minimo-32-caracteres-producao}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:3600000} # 1 hora (ms)
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 dias (ms)
