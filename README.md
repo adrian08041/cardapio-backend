@@ -1,138 +1,202 @@
-# 🍔 Cardápio Pro API
+# 🍔 Cardápio Pro - Backend API
 
-Backend robusto e escalável para sistema de cardápio digital e delivery, desenvolvido com **Java 21** e **Spring Boot 3**.
+Backend RESTful para plataforma de Food Service desenvolvido com **Spring Boot 3** e **Java 21**.
 
-![Java](https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5.10-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-316192?style=for-the-badge&logo=postgresql&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-24.0-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+## 🚀 Tecnologias
 
----
+- **Java 21** - LTS
+- **Spring Boot 3.5** - Framework
+- **Spring Security** - Autenticação JWT
+- **Spring Data JPA** - Persistência
+- **PostgreSQL 16** - Banco de dados
+- **Flyway** - Migrations
+- **SpringDoc OpenAPI** - Documentação Swagger
+- **Docker** - Containerização
+- **Lombok** - Redução de boilerplate
 
-## 🚀 Sobre o Projeto
+## 📋 Funcionalidades
 
-O **Cardápio Pro API** é o motor de um sistema completo de delivery, permitindo gerenciamento de catálogo, produtos complexos com adicionais, e fluxo completo de pedidos.
+- ✅ **Catálogo**: Categorias, Produtos e Addons
+- ✅ **Pedidos**: Criação, acompanhamento e histórico
+- ✅ **Cupons**: Descontos percentuais e fixos
+- ✅ **Fidelidade**: Programa de pontos e tiers
+- ✅ **Autenticação**: JWT com refresh token
+- ✅ **Configurações**: Horários, delivery e PIX
 
-### 🌟 Principais Funcionalidades
-
-- **Catálogo Dinâmico:** Gestão de categorias e produtos.
-- **Sistema de Adicionais:** Flexibilidade para personalizar produtos (ex: "Sem cebola", "Borda recheada", "Bacon extra").
-- **Gestão de Pedidos:** Fluxo completo desde a criação até a entrega, com validação de status.
-- **API Documentada:** Documentação interativa com Swagger UI.
-- **Padrões de Projeto:** Arquitetura em camadas (Controller, Service, Repository), DTOs, e tratamento global de erros.
-
----
-
-## 🛠️ Tecnologias Utilizadas
-
-- **Linguagem:** Java 21 LTS
-- **Framework:** Spring Boot 3.5.10
-- **Banco de Dados:** PostgreSQL 15
-- **Migração de Dados:** Spring Data JPA + Seeds SQL
-- **Documentação:** SpringDoc OpenApi (Swagger)
-- **Containerização:** Docker & Docker Compose
-- **Ferramentas:** Maven, Lombok, Bean Validation
-
----
-
-## 🏗️ Arquitetura
-
-O projeto segue uma arquitetura limpa dividida em camadas:
-
-```mermaid
-graph TD
-    A[Controller Layer] -->|DTOs| B[Service Layer]
-    B -->|Entities| C[Repository Layer]
-    C -->|JPA| D[(PostgreSQL)]
-```
-
-- **Controller:** Recebe requisições HTTP e valida dados (DTOs).
-- **Service:** Contém a lógica de negócio e regras de validação.
-- **Repository:** Interface de comunicação com o banco de dados via JPA.
-- **Global Exception Handler:** Centraliza e padroniza as respostas de erro da API.
-
----
-
-## ⚙️ Como Executar
+## 🏃 Quick Start
 
 ### Pré-requisitos
 
-- Java 21+ instalado
-- Docker & Docker Compose instalados
-- Maven instalado
+- Docker e Docker Compose
+- Java 21 (para desenvolvimento local)
+- Maven 3.9+
 
-### Passo a Passo
+### Com Docker (Recomendado)
 
-1. **Clone o repositório**
+```bash
+# Clone o repositório
+git clone https://github.com/seu-usuario/cardapio-backend.git
+cd cardapio-backend
 
-   ```bash
-   git clone https://github.com/adrian08041/cardapio-backend.git
-   cd cardapio-backend
-   ```
+# Inicie os containers
+docker-compose up -d
 
-2. **Suba o banco de dados**
+# Verifique os logs
+docker-compose logs -f api
+```
 
-   ```bash
-   docker-compose up -d
-   ```
+### Desenvolvimento Local
 
-3. **Execute a aplicação**
+```bash
+# Inicie apenas o PostgreSQL
+docker-compose up -d postgres
 
-   ```bash
-   mvn spring-boot:run
-   ```
+# Execute a aplicação
+./mvnw spring-boot:run
+```
 
-4. **Acesse a Documentação (Swagger)**
-   Abra no navegador: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+## 🔗 URLs
 
----
+| Serviço         | URL                                   |
+| --------------- | ------------------------------------- |
+| API             | http://localhost:8080                 |
+| Swagger UI      | http://localhost:8080/swagger-ui.html |
+| API Docs (JSON) | http://localhost:8080/v3/api-docs     |
+| PgAdmin         | http://localhost:5050                 |
 
-## 📚 Documentação da API
+### Credenciais PgAdmin
 
-### Principais Endpoints
+- **Email**: admin@cardapio.com
+- **Password**: admin123
 
-| Recurso        | Método | Endpoint                     | Descrição                     |
-| -------------- | ------ | ---------------------------- | ----------------------------- |
-| **Categories** | GET    | `/api/v1/categories`         | Listar categorias ativas      |
-| **Products**   | GET    | `/api/v1/products`           | Listar produtos               |
-| **Products**   | POST   | `/api/v1/products`           | Criar produto com categoria   |
-| **Addons**     | GET    | `/api/v1/addons`             | Listar adicionais disponíveis |
-| **Orders**     | POST   | `/api/v1/orders`             | Criar novo pedido             |
-| **Orders**     | PATCH  | `/api/v1/orders/{id}/status` | Atualizar status do pedido    |
+## 🔐 Autenticação
 
-> Para ver todos os endpoints e testar, use o Swagger.
+A API usa JWT (JSON Web Tokens) para autenticação.
 
----
+### Registrar Usuário
 
-## 🗄️ Estrutura do Banco de Dados
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Admin",
+    "email": "admin@cardapio.com",
+    "password": "admin123",
+    "role": "ADMIN"
+  }'
+```
 
-### Tabelas Principais
+### Login
 
-- `categories`: Categorias do cardápio.
-- `products`: Produtos principais.
-- `addon_categories`: Grupos de adicionais (ex: "Molhos", "Tamanho").
-- `addons`: Itens adicionais individuais.
-- `product_addon_categories`: Vínculo N:N entre produtos e grupos de addons.
-- `orders`: Cabeçalho do pedido.
-- `order_items`: Itens do pedido.
-- `order_item_addons`: Adicionais escolhidos para cada item.
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@cardapio.com",
+    "password": "admin123"
+  }'
+```
 
----
+### Usar Token
 
-## 🤝 Contribuindo
+```bash
+curl -X GET http://localhost:8080/api/v1/products \
+  -H "Authorization: Bearer {seu_token}"
+```
 
-1. Faça um Fork do projeto
-2. Crie sua Feature Branch (`git checkout -b feature/MinhaFeature`)
-3. Commit suas mudanças (`git commit -m 'feat: Adiciona nova funcionalidade'`)
-4. Push para a Branch (`git push origin feature/MinhaFeature`)
-5. Abra um Pull Request
+## 📂 Estrutura do Projeto
 
----
+```
+src/main/java/com/cardapiopro/
+├── config/          # Configurações (Security, OpenAPI)
+├── controller/      # Controllers REST
+├── dto/             # DTOs (Request/Response)
+├── entity/          # Entidades JPA
+├── exception/       # Exceções customizadas
+├── repository/      # Repositórios JPA
+├── security/        # JWT e filtros de segurança
+└── service/         # Lógica de negócio
+
+src/main/resources/
+├── db/migration/    # Scripts Flyway
+├── db/seed/         # Dados de teste
+└── application.yaml # Configurações
+```
+
+## 🔒 Roles e Permissões
+
+| Role          | Descrição                             |
+| ------------- | ------------------------------------- |
+| `CUSTOMER`    | Cliente - pode fazer pedidos          |
+| `KITCHEN`     | Cozinha - pode preparar pedidos       |
+| `ADMIN`       | Administrador - acesso total          |
+| `SUPER_ADMIN` | Super Admin - configurações avançadas |
+
+## 📊 Endpoints Principais
+
+### Autenticação
+
+- `POST /api/v1/auth/register` - Registrar usuário
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/refresh` - Refresh token
+
+### Catálogo
+
+- `GET /api/v1/categories` - Listar categorias
+- `GET /api/v1/products` - Listar produtos
+- `GET /api/v1/products/{slug}` - Detalhes do produto
+
+### Pedidos
+
+- `POST /api/v1/orders` - Criar pedido
+- `GET /api/v1/orders/{id}` - Detalhes do pedido
+- `PATCH /api/v1/orders/{id}/status` - Atualizar status
+
+### Fidelidade
+
+- `GET /api/v1/loyalty/balance/{customerId}` - Saldo de pontos
+- `POST /api/v1/loyalty/redeem/{customerId}` - Resgatar pontos
+
+### Configurações
+
+- `GET /api/v1/settings` - Configurações da loja
+- `PUT /api/v1/settings` - Atualizar configurações
+
+## 🧪 Testes
+
+```bash
+# Executar todos os testes
+./mvnw test
+
+# Executar com cobertura
+./mvnw test jacoco:report
+```
+
+## 📦 Build
+
+```bash
+# Build sem testes
+./mvnw clean package -DskipTests
+
+# Build com Docker
+docker build -t cardapio-api .
+```
+
+## 🌐 Deploy
+
+### Variáveis de Ambiente (Produção)
+
+```env
+SPRING_DATASOURCE_URL=jdbc:postgresql://host:5432/cardapio_pro
+SPRING_DATASOURCE_USERNAME=user
+SPRING_DATASOURCE_PASSWORD=password
+JWT_SECRET=your-production-secret-256-bits
+```
 
 ## 📝 Licença
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está sob a licença MIT.
 
 ---
 
-Desenvolvido com 💙 por **Adrian**.
+Desenvolvido com ❤️ para o **Cardápio Pro**
