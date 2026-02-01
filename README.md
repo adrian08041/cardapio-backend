@@ -64,11 +64,6 @@ docker-compose up -d postgres
 | API Docs (JSON) | http://localhost:8080/v3/api-docs     |
 | PgAdmin         | http://localhost:5050                 |
 
-### Credenciais PgAdmin
-
-- **Email**: admin@cardapio.com
-- **Password**: admin123
-
 ## 🔐 Autenticação
 
 A API usa JWT (JSON Web Tokens) para autenticação.
@@ -162,41 +157,7 @@ src/main/resources/
 - `GET /api/v1/settings` - Configurações da loja
 - `PUT /api/v1/settings` - Atualizar configurações
 
-## 🧪 Testes
-
-```bash
-# Executar todos os testes
-./mvnw test
-
-# Executar com cobertura
-./mvnw test jacoco:report
-```
-
-## 📦 Build
-
-```bash
-# Build sem testes
-./mvnw clean package -DskipTests
-
-# Build com Docker
-docker build -t cardapio-api .
-```
-
-## 🌐 Deploy
-
-### Variáveis de Ambiente (Produção)
-
-```env
-SPRING_DATASOURCE_URL=jdbc:postgresql://host:5432/cardapio_pro
-SPRING_DATASOURCE_USERNAME=user
-SPRING_DATASOURCE_PASSWORD=password
-JWT_SECRET=your-production-secret-256-bits
-```
-
 ## 📝 Licença
 
 Este projeto está sob a licença MIT.
 
----
-
-Desenvolvido com ❤️ para o **Cardápio Pro**
