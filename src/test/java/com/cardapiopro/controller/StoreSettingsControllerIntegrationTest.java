@@ -1,11 +1,13 @@
 package com.cardapiopro.controller;
 
+import com.cardapiopro.dto.request.UpdateStoreSettingsRequest;
 import com.cardapiopro.entity.StoreSettings;
 import com.cardapiopro.entity.enums.PixKeyType;
 import com.cardapiopro.repository.StoreSettingsRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -17,7 +19,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -38,10 +39,12 @@ class StoreSettingsControllerIntegrationTest {
     @Autowired
     private StoreSettingsRepository settingsRepository;
 
+    private StoreSettings testSettings;
+
     @BeforeEach
     void setUp() {
         settingsRepository.deleteAll();
-        settingsRepository.save(StoreSettings.builder()
+        testSettings = settingsRepository.save(StoreSettings.builder()
                 .storeName("Test Store")
                 .isOpen(true)
                 .deliveryEnabled(true)
@@ -57,87 +60,188 @@ class StoreSettingsControllerIntegrationTest {
                 .build());
     }
 
-    @Test
-    @DisplayName("Should get settings (public)")
-    void getSettings_Success() throws Exception {
-        mockMvc.perform(get("/api/v1/settings"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.storeName").value("Test Store"))
-                .andExpect(jsonPath("$.isOpen").value(true))
-                .andExpect(jsonPath("$.deliveryFee").value(5.00));
+    @Nested
+    @DisplayName("GET /api/v1/settings")
+    class GetSettings {
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Deve retornar configurações para usuário autenticado")
+        void shouldReturnSettingsForAuthenticatedUser() throws Exception {
+            mockMvc.perform(get("/api/v1/settings"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.storeName").value("Test Store"))
+                    .andExpect(jsonPath("$.isOpen").value(true))
+                    .andExpect(jsonPath("$.deliveryEnabled").value(true))
+                    .andExpect(jsonPath("$.deliveryFee").value(5.00))
+                    .andExpect(jsonPath("$.freeDeliveryThreshold").value(100.00))
+                    .andExpect(jsonPath("$.pixDiscountPercent").value(5.00));
+        }
+
+        @Test
+        @DisplayName("Deve negar acesso sem autenticação")
+        void shouldDenyAccessWithoutAuthentication() throws Exception {
+            mockMvc.perform(get("/api/v1/settings"))
+                    .andExpect(status().isForbidden());
+        }
     }
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    @DisplayName("Should update settings (admin)")
-    void updateSettings_Success() throws Exception {
-        Map<String, Object> request = Map.of(
-                "storeName", "Updated Store",
-                "deliveryFee", 8.00);
+    @Nested
+    @DisplayName("PUT /api/v1/settings")
+    class UpdateSettings {
 
-        mockMvc.perform(put("/api/v1/settings")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.storeName").value("Updated Store"))
-                .andExpect(jsonPath("$.deliveryFee").value(8.00));
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin deve conseguir atualizar configurações")
+        void adminShouldUpdateSettings() throws Exception {
+            UpdateStoreSettingsRequest request = new UpdateStoreSettingsRequest(
+                    "Updated Store", null, null, null, null, null, null, null,
+                    new BigDecimal("8.00"), null, null, null, null, null, null, null, null);
+
+            mockMvc.perform(put("/api/v1/settings")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.storeName").value("Updated Store"))
+                    .andExpect(jsonPath("$.deliveryFee").value(8.00));
+        }
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Customer não deve conseguir atualizar configurações")
+        void customerShouldNotUpdateSettings() throws Exception {
+            UpdateStoreSettingsRequest request = new UpdateStoreSettingsRequest(
+                    "Hacked Store", null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, null, null);
+
+            mockMvc.perform(put("/api/v1/settings")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("Deve negar atualização sem autenticação")
+        void shouldDenyUpdateWithoutAuthentication() throws Exception {
+            UpdateStoreSettingsRequest request = new UpdateStoreSettingsRequest(
+                    "Hacked Store", null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, null, null);
+
+            mockMvc.perform(put("/api/v1/settings")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isForbidden());
+        }
     }
 
-    @Test
-    @DisplayName("Should deny update without auth")
-    void updateSettings_Unauthorized() throws Exception {
-        Map<String, Object> request = Map.of("storeName", "Hacked Store");
+    @Nested
+    @DisplayName("PATCH /api/v1/settings/toggle-open")
+    class ToggleOpen {
 
-        mockMvc.perform(put("/api/v1/settings")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden());
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin deve conseguir fechar a loja")
+        void adminShouldCloseStore() throws Exception {
+            mockMvc.perform(patch("/api/v1/settings/toggle-open")
+                            .param("open", "false"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.isOpen").value(false));
+        }
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin deve conseguir abrir a loja")
+        void adminShouldOpenStore() throws Exception {
+            testSettings.setIsOpen(false);
+            settingsRepository.save(testSettings);
+
+            mockMvc.perform(patch("/api/v1/settings/toggle-open")
+                            .param("open", "true"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.isOpen").value(true));
+        }
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Customer não deve conseguir alterar status da loja")
+        void customerShouldNotToggleOpen() throws Exception {
+            mockMvc.perform(patch("/api/v1/settings/toggle-open")
+                            .param("open", "false"))
+                    .andExpect(status().isForbidden());
+        }
     }
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    @DisplayName("Should toggle open status")
-    void toggleOpen_Success() throws Exception {
-        mockMvc.perform(patch("/api/v1/settings/toggle-open")
-                .param("open", "false"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.isOpen").value(false));
+    @Nested
+    @DisplayName("PATCH /api/v1/settings/toggle-delivery")
+    class ToggleDelivery {
+
+        @Test
+        @WithMockUser(roles = "ADMIN")
+        @DisplayName("Admin deve conseguir desabilitar delivery")
+        void adminShouldDisableDelivery() throws Exception {
+            mockMvc.perform(patch("/api/v1/settings/toggle-delivery")
+                            .param("enabled", "false"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.deliveryEnabled").value(false));
+        }
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Customer não deve conseguir alterar delivery")
+        void customerShouldNotToggleDelivery() throws Exception {
+            mockMvc.perform(patch("/api/v1/settings/toggle-delivery")
+                            .param("enabled", "false"))
+                    .andExpect(status().isForbidden());
+        }
     }
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    @DisplayName("Should toggle delivery status")
-    void toggleDelivery_Success() throws Exception {
-        mockMvc.perform(patch("/api/v1/settings/toggle-delivery")
-                .param("enabled", "false"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.deliveryEnabled").value(false));
+    @Nested
+    @DisplayName("GET /api/v1/settings/delivery-fee")
+    class CalculateDeliveryFee {
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Deve calcular taxa de entrega normalmente")
+        void shouldCalculateDeliveryFee() throws Exception {
+            mockMvc.perform(get("/api/v1/settings/delivery-fee")
+                            .param("orderTotal", "50.00"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("5.00"));
+        }
+
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Deve retornar zero quando acima do limite para frete grátis")
+        void shouldReturnZeroWhenAboveThreshold() throws Exception {
+            mockMvc.perform(get("/api/v1/settings/delivery-fee")
+                            .param("orderTotal", "150.00"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("0"));
+        }
     }
 
-    @Test
-    @DisplayName("Should calculate delivery fee (public)")
-    void calculateDeliveryFee_Success() throws Exception {
-        mockMvc.perform(get("/api/v1/settings/delivery-fee")
-                .param("orderTotal", "50.00"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("5.00"));
-    }
+    @Nested
+    @DisplayName("GET /api/v1/settings/pix-discount")
+    class CalculatePixDiscount {
 
-    @Test
-    @DisplayName("Should return zero delivery fee above threshold")
-    void calculateDeliveryFee_FreeDelivery() throws Exception {
-        mockMvc.perform(get("/api/v1/settings/delivery-fee")
-                .param("orderTotal", "150.00"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("0"));
-    }
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Deve calcular desconto PIX corretamente")
+        void shouldCalculatePixDiscount() throws Exception {
+            mockMvc.perform(get("/api/v1/settings/pix-discount")
+                            .param("orderTotal", "100.00"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("5.00"));
+        }
 
-    @Test
-    @DisplayName("Should calculate PIX discount (public)")
-    void calculatePixDiscount_Success() throws Exception {
-        mockMvc.perform(get("/api/v1/settings/pix-discount")
-                .param("orderTotal", "100.00"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("5.00")); // 5% of 100
+        @Test
+        @WithMockUser(roles = "CUSTOMER")
+        @DisplayName("Deve calcular desconto PIX para valor diferente")
+        void shouldCalculatePixDiscountForDifferentValue() throws Exception {
+            mockMvc.perform(get("/api/v1/settings/pix-discount")
+                            .param("orderTotal", "200.00"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string("10.00"));
+        }
     }
 }

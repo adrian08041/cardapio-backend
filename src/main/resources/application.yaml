@@ -1,3 +1,6 @@
+server:
+  port: 8081
+
 spring:
   application:
     name: cardapio-backend
@@ -11,11 +14,17 @@ spring:
   # Configuração do JPA/Hibernate
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: none  # Flyway gerencia o schema
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+
+  # Configuração do Flyway
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
 
 # Configurações JWT
 jwt:

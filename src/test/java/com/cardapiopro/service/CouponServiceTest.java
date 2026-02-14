@@ -1,12 +1,13 @@
 package com.cardapiopro.service;
 
 import com.cardapiopro.entity.Coupon;
-import com.cardapiopro.entity.enums.CouponType;
+import com.cardapiopro.entity.enums.DiscountType;
 import com.cardapiopro.exception.ResourceNotFoundException;
 import com.cardapiopro.repository.CouponRepository;
 import com.cardapiopro.repository.OrderRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -46,132 +47,221 @@ class CouponServiceTest {
         testCoupon = Coupon.builder()
                 .id(couponId)
                 .code("PROMO10")
-                .type(CouponType.PERCENTAGE)
+                .type(DiscountType.PERCENTAGE)
                 .value(new BigDecimal("10"))
                 .minOrderValue(new BigDecimal("50"))
-                .maxDiscount(new BigDecimal("20"))
-                .maxUses(100)
-                .usedCount(0)
+                .maxDiscountValue(new BigDecimal("20"))
+                .usageLimit(100)
+                .usageCount(0)
                 .active(true)
                 .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(30))
+                .expirationDate(LocalDateTime.now().plusDays(30))
                 .build();
     }
 
-    @Test
-    @DisplayName("Should find coupon by code")
-    void findByCode_Success() {
-        // Arrange
-        when(couponRepository.findByCodeIgnoreCase(anyString())).thenReturn(Optional.of(testCoupon));
+    @Nested
+    @DisplayName("findByCode")
+    class FindByCode {
 
-        // Act
-        Coupon result = couponService.findByCode("PROMO10");
+        @Test
+        @DisplayName("Deve encontrar cupom por código")
+        void shouldFindCouponByCode() {
+            when(couponRepository.findByCodeIgnoreCaseAndActiveTrue("PROMO10"))
+                    .thenReturn(Optional.of(testCoupon));
 
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.getCode()).isEqualTo("PROMO10");
+            Coupon result = couponService.findByCode("PROMO10");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getCode()).isEqualTo("PROMO10");
+            verify(couponRepository).findByCodeIgnoreCaseAndActiveTrue("PROMO10");
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção quando cupom não encontrado")
+        void shouldThrowExceptionWhenCouponNotFound() {
+            when(couponRepository.findByCodeIgnoreCaseAndActiveTrue(anyString()))
+                    .thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> couponService.findByCode("INVALID"))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("INVALID");
+        }
     }
 
-    @Test
-    @DisplayName("Should throw exception when coupon not found")
-    void findByCode_NotFound() {
-        // Arrange
-        when(couponRepository.findByCodeIgnoreCase(anyString())).thenReturn(Optional.empty());
+    @Nested
+    @DisplayName("calculateDiscount")
+    class CalculateDiscount {
 
-        // Act & Assert
-        assertThatThrownBy(() -> couponService.findByCode("INVALID"))
-                .isInstanceOf(ResourceNotFoundException.class);
+        @Test
+        @DisplayName("Deve calcular desconto percentual corretamente")
+        void shouldCalculatePercentageDiscount() {
+            BigDecimal orderTotal = new BigDecimal("100");
+
+            when(couponRepository.findByCodeIgnoreCaseAndActiveTrue("PROMO10"))
+                    .thenReturn(Optional.of(testCoupon));
+
+            BigDecimal discount = couponService.calculateDiscount("PROMO10", orderTotal);
+
+            assertThat(discount).isEqualByComparingTo(new BigDecimal("10.00"));
+        }
+
+        @Test
+        @DisplayName("Deve respeitar limite máximo de desconto")
+        void shouldRespectMaxDiscountLimit() {
+            BigDecimal orderTotal = new BigDecimal("300"); // 10% = 30, mas máximo é 20
+
+            when(couponRepository.findByCodeIgnoreCaseAndActiveTrue("PROMO10"))
+                    .thenReturn(Optional.of(testCoupon));
+
+            BigDecimal discount = couponService.calculateDiscount("PROMO10", orderTotal);
+
+            assertThat(discount).isEqualByComparingTo(new BigDecimal("20.00"));
+        }
+
+        @Test
+        @DisplayName("Deve calcular desconto fixo corretamente")
+        void shouldCalculateFixedDiscount() {
+            Coupon fixedCoupon = Coupon.builder()
+                    .id(UUID.randomUUID())
+                    .code("SAVE15")
+                    .type(DiscountType.FIXED)
+                    .value(new BigDecimal("15"))
+                    .active(true)
+                    .startDate(LocalDateTime.now().minusDays(1))
+                    .expirationDate(LocalDateTime.now().plusDays(30))
+                    .build();
+
+            BigDecimal orderTotal = new BigDecimal("100");
+
+            when(couponRepository.findByCodeIgnoreCaseAndActiveTrue("SAVE15"))
+                    .thenReturn(Optional.of(fixedCoupon));
+
+            BigDecimal discount = couponService.calculateDiscount("SAVE15", orderTotal);
+
+            assertThat(discount).isEqualByComparingTo(new BigDecimal("15.00"));
+        }
+
+        @Test
+        @DisplayName("Não deve exceder o valor do pedido")
+        void shouldNotExceedOrderTotal() {
+            Coupon fixedCoupon = Coupon.builder()
+                    .id(UUID.randomUUID())
+                    .code("BIG50")
+                    .type(DiscountType.FIXED)
+                    .value(new BigDecimal("50"))
+                    .active(true)
+                    .startDate(LocalDateTime.now().minusDays(1))
+                    .expirationDate(LocalDateTime.now().plusDays(30))
+                    .build();
+
+            BigDecimal orderTotal = new BigDecimal("30"); // desconto > total
+
+            when(couponRepository.findByCodeIgnoreCaseAndActiveTrue("BIG50"))
+                    .thenReturn(Optional.of(fixedCoupon));
+
+            BigDecimal discount = couponService.calculateDiscount("BIG50", orderTotal);
+
+            assertThat(discount).isEqualByComparingTo(new BigDecimal("30.00"));
+        }
     }
 
-    @Test
-    @DisplayName("Should calculate percentage discount correctly")
-    void calculateDiscount_Percentage() {
-        // Arrange
-        BigDecimal orderTotal = new BigDecimal("100");
+    @Nested
+    @DisplayName("incrementUsage")
+    class IncrementUsage {
 
-        when(couponRepository.findByCodeIgnoreCase(anyString())).thenReturn(Optional.of(testCoupon));
+        @Test
+        @DisplayName("Deve incrementar uso do cupom")
+        void shouldIncrementCouponUsage() {
+            when(couponRepository.findById(couponId)).thenReturn(Optional.of(testCoupon));
+            when(couponRepository.save(any(Coupon.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Act
-        BigDecimal discount = couponService.calculateDiscount("PROMO10", orderTotal);
+            couponService.incrementUsage(couponId);
 
-        // Assert
-        assertThat(discount).isEqualByComparingTo(new BigDecimal("10.00")); // 10% of 100
+            assertThat(testCoupon.getUsageCount()).isEqualTo(1);
+            verify(couponRepository).save(testCoupon);
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção quando limite de uso atingido")
+        void shouldThrowExceptionWhenUsageLimitReached() {
+            testCoupon.setUsageCount(100); // igual ao usageLimit
+            when(couponRepository.findById(couponId)).thenReturn(Optional.of(testCoupon));
+
+            assertThatThrownBy(() -> couponService.incrementUsage(couponId))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Limite de uso do cupom atingido");
+
+            verify(couponRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção quando cupom não encontrado")
+        void shouldThrowExceptionWhenCouponNotFound() {
+            UUID randomId = UUID.randomUUID();
+            when(couponRepository.findById(randomId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> couponService.incrementUsage(randomId))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
     }
 
-    @Test
-    @DisplayName("Should respect max discount limit")
-    void calculateDiscount_RespectMaxDiscount() {
-        // Arrange
-        BigDecimal orderTotal = new BigDecimal("300"); // 10% = 30, but max is 20
+    @Nested
+    @DisplayName("create")
+    class Create {
 
-        when(couponRepository.findByCodeIgnoreCase(anyString())).thenReturn(Optional.of(testCoupon));
+        @Test
+        @DisplayName("Deve criar cupom com sucesso")
+        void shouldCreateCouponSuccessfully() {
+            Coupon newCoupon = Coupon.builder()
+                    .code("NEWCOUPON")
+                    .type(DiscountType.PERCENTAGE)
+                    .value(new BigDecimal("15"))
+                    .minOrderValue(new BigDecimal("30"))
+                    .active(true)
+                    .build();
 
-        // Act
-        BigDecimal discount = couponService.calculateDiscount("PROMO10", orderTotal);
+            when(couponRepository.existsByCodeIgnoreCase("NEWCOUPON")).thenReturn(false);
+            when(couponRepository.save(any(Coupon.class))).thenReturn(newCoupon);
 
-        // Assert
-        assertThat(discount).isEqualByComparingTo(new BigDecimal("20.00")); // Limited by maxDiscount
+            Coupon result = couponService.create(newCoupon);
+
+            assertThat(result).isNotNull();
+            verify(couponRepository).save(newCoupon);
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção para código duplicado")
+        void shouldThrowExceptionForDuplicateCode() {
+            Coupon newCoupon = Coupon.builder()
+                    .code("PROMO10")
+                    .type(DiscountType.PERCENTAGE)
+                    .value(new BigDecimal("10"))
+                    .build();
+
+            when(couponRepository.existsByCodeIgnoreCase("PROMO10")).thenReturn(true);
+
+            assertThatThrownBy(() -> couponService.create(newCoupon))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Já existe um cupom com este código");
+
+            verify(couponRepository, never()).save(any());
+        }
     }
 
-    @Test
-    @DisplayName("Should calculate fixed discount correctly")
-    void calculateDiscount_Fixed() {
-        // Arrange
-        Coupon fixedCoupon = Coupon.builder()
-                .id(UUID.randomUUID())
-                .code("SAVE15")
-                .type(CouponType.FIXED)
-                .value(new BigDecimal("15"))
-                .active(true)
-                .startDate(LocalDateTime.now().minusDays(1))
-                .endDate(LocalDateTime.now().plusDays(30))
-                .build();
+    @Nested
+    @DisplayName("delete")
+    class Delete {
 
-        BigDecimal orderTotal = new BigDecimal("100");
+        @Test
+        @DisplayName("Deve desativar cupom (soft delete)")
+        void shouldDeactivateCoupon() {
+            when(couponRepository.findById(couponId)).thenReturn(Optional.of(testCoupon));
+            when(couponRepository.save(any(Coupon.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        when(couponRepository.findByCodeIgnoreCase(anyString())).thenReturn(Optional.of(fixedCoupon));
+            couponService.delete(couponId);
 
-        // Act
-        BigDecimal discount = couponService.calculateDiscount("SAVE15", orderTotal);
-
-        // Assert
-        assertThat(discount).isEqualByComparingTo(new BigDecimal("15.00"));
-    }
-
-    @Test
-    @DisplayName("Should increment used count")
-    void incrementUsage_Success() {
-        // Arrange
-        when(couponRepository.findByCodeIgnoreCase(anyString())).thenReturn(Optional.of(testCoupon));
-        when(couponRepository.save(any(Coupon.class))).thenReturn(testCoupon);
-
-        // Act
-        couponService.incrementUsage("PROMO10");
-
-        // Assert
-        verify(couponRepository).save(any(Coupon.class));
-    }
-
-    @Test
-    @DisplayName("Should create coupon successfully")
-    void create_Success() {
-        // Arrange
-        when(couponRepository.save(any(Coupon.class))).thenReturn(testCoupon);
-
-        // Act
-        Coupon result = couponService.create(
-                "PROMO10",
-                CouponType.PERCENTAGE,
-                new BigDecimal("10"),
-                new BigDecimal("50"),
-                new BigDecimal("20"),
-                100,
-                null,
-                LocalDateTime.now().minusDays(1),
-                LocalDateTime.now().plusDays(30));
-
-        // Assert
-        assertThat(result).isNotNull();
-        verify(couponRepository).save(any(Coupon.class));
+            assertThat(testCoupon.isActive()).isFalse();
+            verify(couponRepository).save(testCoupon);
+        }
     }
 }

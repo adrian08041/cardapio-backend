@@ -5,16 +5,14 @@ import com.cardapiopro.exception.ResourceNotFoundException;
 import com.cardapiopro.repository.CategoryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,90 +43,215 @@ class CategoryServiceTest {
                 .id(categoryId)
                 .name("Lanches")
                 .slug("lanches")
-                .description("Lanches deliciosos")
+                .icon("🍔")
                 .active(true)
                 .displayOrder(0)
                 .build();
     }
 
-    @Test
-    @DisplayName("Should find all active categories")
-    void findAllActive_Success() {
-        // Arrange
-        Pageable pageable = PageRequest.of(0, 10);
-        Page<Category> page = new PageImpl<>(List.of(testCategory));
+    @Nested
+    @DisplayName("findAllActive")
+    class FindAllActive {
 
-        when(categoryRepository.findByActiveTrue(pageable)).thenReturn(page);
+        @Test
+        @DisplayName("Deve retornar todas as categorias ativas")
+        void shouldReturnAllActiveCategories() {
+            when(categoryRepository.findByActiveTrueOrderByDisplayOrderAsc())
+                    .thenReturn(List.of(testCategory));
 
-        // Act
-        Page<Category> result = categoryService.findAllActive(pageable);
+            List<Category> result = categoryService.findAllActive();
 
-        // Assert
-        assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getName()).isEqualTo("Lanches");
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("Lanches");
+            verify(categoryRepository).findByActiveTrueOrderByDisplayOrderAsc();
+        }
+
+        @Test
+        @DisplayName("Deve retornar lista vazia quando não há categorias ativas")
+        void shouldReturnEmptyListWhenNoActiveCategories() {
+            when(categoryRepository.findByActiveTrueOrderByDisplayOrderAsc())
+                    .thenReturn(Collections.emptyList());
+
+            List<Category> result = categoryService.findAllActive();
+
+            assertThat(result).isEmpty();
+        }
     }
 
-    @Test
-    @DisplayName("Should find category by slug")
-    void findBySlug_Success() {
-        // Arrange
-        when(categoryRepository.findBySlug(anyString())).thenReturn(Optional.of(testCategory));
+    @Nested
+    @DisplayName("findBySlug")
+    class FindBySlug {
 
-        // Act
-        Category result = categoryService.findBySlug("lanches");
+        @Test
+        @DisplayName("Deve encontrar categoria por slug")
+        void shouldFindCategoryBySlug() {
+            when(categoryRepository.findBySlug("lanches")).thenReturn(Optional.of(testCategory));
 
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.getSlug()).isEqualTo("lanches");
+            Category result = categoryService.findBySlug("lanches");
+
+            assertThat(result).isNotNull();
+            assertThat(result.getSlug()).isEqualTo("lanches");
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção quando categoria não encontrada")
+        void shouldThrowExceptionWhenCategoryNotFound() {
+            when(categoryRepository.findBySlug(anyString())).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> categoryService.findBySlug("not-found"))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("not-found");
+        }
     }
 
-    @Test
-    @DisplayName("Should throw exception when category not found by slug")
-    void findBySlug_NotFound() {
-        // Arrange
-        when(categoryRepository.findBySlug(anyString())).thenReturn(Optional.empty());
+    @Nested
+    @DisplayName("findById")
+    class FindById {
 
-        // Act & Assert
-        assertThatThrownBy(() -> categoryService.findBySlug("not-found"))
-                .isInstanceOf(ResourceNotFoundException.class);
+        @Test
+        @DisplayName("Deve encontrar categoria por ID")
+        void shouldFindCategoryById() {
+            when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(testCategory));
+
+            Category result = categoryService.findById(categoryId);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getId()).isEqualTo(categoryId);
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção quando categoria não encontrada por ID")
+        void shouldThrowExceptionWhenCategoryNotFoundById() {
+            UUID randomId = UUID.randomUUID();
+            when(categoryRepository.findById(randomId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> categoryService.findById(randomId))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
     }
 
-    @Test
-    @DisplayName("Should create category with generated slug")
-    void create_Success() {
-        // Arrange
-        when(categoryRepository.save(any(Category.class))).thenReturn(testCategory);
+    @Nested
+    @DisplayName("create")
+    class Create {
 
-        // Act
-        Category result = categoryService.create("Lanches", "Lanches deliciosos", null, null, true);
+        @Test
+        @DisplayName("Deve criar categoria com sucesso")
+        void shouldCreateCategorySuccessfully() {
+            Category newCategory = Category.builder()
+                    .name("Bebidas")
+                    .slug("bebidas")
+                    .icon("🥤")
+                    .active(true)
+                    .displayOrder(1)
+                    .build();
 
-        // Assert
-        assertThat(result).isNotNull();
-        verify(categoryRepository).save(any(Category.class));
+            when(categoryRepository.existsBySlug("bebidas")).thenReturn(false);
+            when(categoryRepository.save(any(Category.class))).thenReturn(newCategory);
+
+            Category result = categoryService.create(newCategory);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getName()).isEqualTo("Bebidas");
+            verify(categoryRepository).existsBySlug("bebidas");
+            verify(categoryRepository).save(newCategory);
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção para slug duplicado")
+        void shouldThrowExceptionForDuplicateSlug() {
+            Category newCategory = Category.builder()
+                    .name("Lanches")
+                    .slug("lanches")
+                    .build();
+
+            when(categoryRepository.existsBySlug("lanches")).thenReturn(true);
+
+            assertThatThrownBy(() -> categoryService.create(newCategory))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Slug já existe");
+
+            verify(categoryRepository, never()).save(any());
+        }
     }
 
-    @Test
-    @DisplayName("Should delete category by id")
-    void delete_Success() {
-        // Arrange
-        when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(testCategory));
-        doNothing().when(categoryRepository).delete(testCategory);
+    @Nested
+    @DisplayName("update")
+    class Update {
 
-        // Act
-        categoryService.delete(categoryId);
+        @Test
+        @DisplayName("Deve atualizar categoria com sucesso")
+        void shouldUpdateCategorySuccessfully() {
+            Category updatedData = Category.builder()
+                    .name("Super Lanches")
+                    .icon("🍔🔥")
+                    .build();
 
-        // Assert
-        verify(categoryRepository).delete(testCategory);
+            when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(testCategory));
+            when(categoryRepository.save(any(Category.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            Category result = categoryService.update(categoryId, updatedData);
+
+            assertThat(result).isNotNull();
+            assertThat(result.getName()).isEqualTo("Super Lanches");
+            assertThat(result.getIcon()).isEqualTo("🍔🔥");
+            verify(categoryRepository).save(any(Category.class));
+        }
+
+        @Test
+        @DisplayName("Deve manter valores não informados na atualização")
+        void shouldKeepUnchangedValuesOnUpdate() {
+            Category updatedData = Category.builder()
+                    .name("Super Lanches")
+                    .build();
+
+            when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(testCategory));
+            when(categoryRepository.save(any(Category.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            Category result = categoryService.update(categoryId, updatedData);
+
+            assertThat(result.getSlug()).isEqualTo("lanches");
+            assertThat(result.getIcon()).isEqualTo("🍔");
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção ao atualizar categoria inexistente")
+        void shouldThrowExceptionWhenUpdatingNonExistentCategory() {
+            UUID randomId = UUID.randomUUID();
+            Category updatedData = Category.builder().name("Test").build();
+
+            when(categoryRepository.findById(randomId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> categoryService.update(randomId, updatedData))
+                    .isInstanceOf(ResourceNotFoundException.class);
+        }
     }
 
-    @Test
-    @DisplayName("Should throw exception when deleting non-existent category")
-    void delete_NotFound() {
-        // Arrange
-        when(categoryRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
+    @Nested
+    @DisplayName("delete")
+    class Delete {
 
-        // Act & Assert
-        assertThatThrownBy(() -> categoryService.delete(UUID.randomUUID()))
-                .isInstanceOf(ResourceNotFoundException.class);
+        @Test
+        @DisplayName("Deve realizar soft delete da categoria")
+        void shouldSoftDeleteCategory() {
+            when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(testCategory));
+            when(categoryRepository.save(any(Category.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            categoryService.delete(categoryId);
+
+            assertThat(testCategory.isActive()).isFalse();
+            verify(categoryRepository).save(testCategory);
+        }
+
+        @Test
+        @DisplayName("Deve lançar exceção ao excluir categoria inexistente")
+        void shouldThrowExceptionWhenDeletingNonExistentCategory() {
+            UUID randomId = UUID.randomUUID();
+            when(categoryRepository.findById(randomId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> categoryService.delete(randomId))
+                    .isInstanceOf(ResourceNotFoundException.class);
+
+            verify(categoryRepository, never()).save(any());
+        }
     }
 }

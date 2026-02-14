@@ -49,7 +49,7 @@ public class OpenApiConfig {
                                                                 .url("https://opensource.org/licenses/MIT")))
                                 .servers(List.of(
                                                 new Server()
-                                                                .url("http://localhost:8080")
+                                                                .url("http://localhost:8081")
                                                                 .description("Desenvolvimento"),
                                                 new Server()
                                                                 .url("https://api.cardapiopro.com")

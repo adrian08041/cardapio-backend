@@ -4,11 +4,13 @@ import com.cardapiopro.entity.User;
 import com.cardapiopro.entity.enums.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,82 +28,179 @@ class UserRepositoryTest {
         userRepository.deleteAll();
     }
 
-    @Test
-    @DisplayName("Should save and find user by email")
-    void findByEmail() {
-        // Arrange
-        User user = User.builder()
-                .name("Test User")
-                .email("test@example.com")
-                .password("encoded_password")
-                .role(UserRole.CUSTOMER)
-                .active(true)
-                .build();
+    @Nested
+    @DisplayName("findByEmail")
+    class FindByEmail {
 
-        userRepository.save(user);
+        @Test
+        @DisplayName("Deve encontrar usuário por email")
+        void shouldFindUserByEmail() {
+            User user = User.builder()
+                    .name("Test User")
+                    .email("test@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.CUSTOMER)
+                    .active(true)
+                    .build();
 
-        // Act
-        Optional<User> found = userRepository.findByEmail("test@example.com");
+            userRepository.save(user);
 
-        // Assert
-        assertThat(found).isPresent();
-        assertThat(found.get().getName()).isEqualTo("Test User");
-        assertThat(found.get().getRole()).isEqualTo(UserRole.CUSTOMER);
+            Optional<User> found = userRepository.findByEmail("test@example.com");
+
+            assertThat(found).isPresent();
+            assertThat(found.get().getName()).isEqualTo("Test User");
+            assertThat(found.get().getEmail()).isEqualTo("test@example.com");
+            assertThat(found.get().getRole()).isEqualTo(UserRole.CUSTOMER);
+        }
+
+        @Test
+        @DisplayName("Deve retornar vazio para email inexistente")
+        void shouldReturnEmptyForNonExistentEmail() {
+            Optional<User> found = userRepository.findByEmail("notfound@example.com");
+
+            assertThat(found).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Deve buscar por email case-sensitive")
+        void shouldBeCaseSensitive() {
+            User user = User.builder()
+                    .name("Test User")
+                    .email("Test@Example.com")
+                    .password("encoded_password")
+                    .role(UserRole.CUSTOMER)
+                    .active(true)
+                    .build();
+
+            userRepository.save(user);
+
+            Optional<User> foundExact = userRepository.findByEmail("Test@Example.com");
+            Optional<User> foundLower = userRepository.findByEmail("test@example.com");
+
+            assertThat(foundExact).isPresent();
+            assertThat(foundLower).isEmpty();
+        }
     }
 
-    @Test
-    @DisplayName("Should return empty for non-existent email")
-    void findByEmail_NotFound() {
-        // Act
-        Optional<User> found = userRepository.findByEmail("notfound@example.com");
+    @Nested
+    @DisplayName("existsByEmail")
+    class ExistsByEmail {
 
-        // Assert
-        assertThat(found).isEmpty();
+        @Test
+        @DisplayName("Deve retornar true quando email existe")
+        void shouldReturnTrueWhenEmailExists() {
+            userRepository.save(User.builder()
+                    .name("Test User")
+                    .email("exists@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.CUSTOMER)
+                    .active(true)
+                    .build());
+
+            assertThat(userRepository.existsByEmail("exists@example.com")).isTrue();
+        }
+
+        @Test
+        @DisplayName("Deve retornar false quando email não existe")
+        void shouldReturnFalseWhenEmailDoesNotExist() {
+            assertThat(userRepository.existsByEmail("notexists@example.com")).isFalse();
+        }
     }
 
-    @Test
-    @DisplayName("Should check email existence")
-    void existsByEmail() {
-        // Arrange
-        userRepository.save(User.builder()
-                .name("Test User")
-                .email("exists@example.com")
-                .password("encoded_password")
-                .role(UserRole.CUSTOMER)
-                .active(true)
-                .build());
+    @Nested
+    @DisplayName("save")
+    class Save {
 
-        // Act & Assert
-        assertThat(userRepository.existsByEmail("exists@example.com")).isTrue();
-        assertThat(userRepository.existsByEmail("notexists@example.com")).isFalse();
+        @Test
+        @DisplayName("Deve salvar usuário com todas as propriedades")
+        void shouldSaveUserWithAllProperties() {
+            User user = User.builder()
+                    .name("Complete User")
+                    .email("complete@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.ADMIN)
+                    .active(true)
+                    .build();
+
+            User saved = userRepository.save(user);
+
+            assertThat(saved.getId()).isNotNull();
+            assertThat(saved.getCreatedAt()).isNotNull();
+            assertThat(saved.getName()).isEqualTo("Complete User");
+            assertThat(saved.getRole()).isEqualTo(UserRole.ADMIN);
+        }
+
+        @Test
+        @DisplayName("Deve gerar ID automaticamente")
+        void shouldGenerateIdAutomatically() {
+            User user = User.builder()
+                    .name("Test User")
+                    .email("autoid@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.CUSTOMER)
+                    .active(true)
+                    .build();
+
+            assertThat(user.getId()).isNull();
+
+            User saved = userRepository.save(user);
+
+            assertThat(saved.getId()).isNotNull();
+        }
     }
 
-    @Test
-    @DisplayName("Should find users by role")
-    void findByRole() {
-        // Arrange
-        userRepository.save(User.builder()
-                .name("Admin User")
-                .email("admin@example.com")
-                .password("encoded_password")
-                .role(UserRole.ADMIN)
-                .active(true)
-                .build());
+    @Nested
+    @DisplayName("findAll")
+    class FindAll {
 
-        userRepository.save(User.builder()
-                .name("Customer User")
-                .email("customer@example.com")
-                .password("encoded_password")
-                .role(UserRole.CUSTOMER)
-                .active(true)
-                .build());
+        @Test
+        @DisplayName("Deve retornar todos os usuários")
+        void shouldReturnAllUsers() {
+            userRepository.save(User.builder()
+                    .name("Admin User")
+                    .email("admin@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.ADMIN)
+                    .active(true)
+                    .build());
 
-        // Act
-        long adminCount = userRepository.findAll().stream()
-                .filter(u -> u.getRole() == UserRole.ADMIN)
-                .count();
+            userRepository.save(User.builder()
+                    .name("Customer User")
+                    .email("customer@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.CUSTOMER)
+                    .active(true)
+                    .build());
 
-        // Assert
-        assertThat(adminCount).isEqualTo(1);
+            List<User> users = userRepository.findAll();
+
+            assertThat(users).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("Deve filtrar por role")
+        void shouldFilterByRole() {
+            userRepository.save(User.builder()
+                    .name("Admin User")
+                    .email("admin@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.ADMIN)
+                    .active(true)
+                    .build());
+
+            userRepository.save(User.builder()
+                    .name("Customer User")
+                    .email("customer@example.com")
+                    .password("encoded_password")
+                    .role(UserRole.CUSTOMER)
+                    .active(true)
+                    .build());
+
+            long adminCount = userRepository.findAll().stream()
+                    .filter(u -> u.getRole() == UserRole.ADMIN)
+                    .count();
+
+            assertThat(adminCount).isEqualTo(1);
+        }
     }
 }

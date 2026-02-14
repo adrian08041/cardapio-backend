@@ -1,12 +1,15 @@
 package com.cardapiopro.service;
 
+import com.cardapiopro.dto.request.UpdateStoreSettingsRequest;
 import com.cardapiopro.entity.StoreSettings;
 import com.cardapiopro.entity.enums.PixKeyType;
 import com.cardapiopro.repository.StoreSettingsRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -50,84 +53,216 @@ class StoreSettingsServiceTest {
                 .build();
     }
 
-    @Test
-    @DisplayName("Should get existing settings")
-    void getSettings_ExistingSettings() {
-        // Arrange
-        when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+    @Nested
+    @DisplayName("getSettings")
+    class GetSettings {
 
-        // Act
-        StoreSettings result = service.getSettings();
+        @Test
+        @DisplayName("Deve retornar configurações existentes")
+        void shouldReturnExistingSettings() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
 
-        // Assert
-        assertThat(result).isNotNull();
-        assertThat(result.getStoreName()).isEqualTo("Minha Loja");
+            StoreSettings result = service.getSettings();
+
+            assertThat(result).isNotNull();
+            assertThat(result.getStoreName()).isEqualTo("Minha Loja");
+            assertThat(result.getIsOpen()).isTrue();
+            verify(repository).findFirstByOrderByUpdatedAtDesc();
+        }
+
+        @Test
+        @DisplayName("Deve criar configurações padrão quando não existir")
+        void shouldCreateDefaultSettingsWhenNotExists() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.empty());
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            StoreSettings result = service.getSettings();
+
+            assertThat(result).isNotNull();
+            assertThat(result.getStoreName()).isEqualTo("Minha Loja");
+            assertThat(result.getIsOpen()).isTrue();
+            assertThat(result.getDeliveryEnabled()).isTrue();
+            verify(repository).save(any(StoreSettings.class));
+        }
     }
 
-    @Test
-    @DisplayName("Should toggle open status")
-    void toggleOpen_Success() {
-        // Arrange
-        when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
-        when(repository.save(any(StoreSettings.class))).thenReturn(testSettings);
+    @Nested
+    @DisplayName("updateSettings")
+    class UpdateSettings {
 
-        // Act
-        StoreSettings result = service.toggleOpen(false);
+        @Test
+        @DisplayName("Deve atualizar nome da loja")
+        void shouldUpdateStoreName() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Assert
-        verify(repository).save(any(StoreSettings.class));
+            UpdateStoreSettingsRequest request = new UpdateStoreSettingsRequest(
+                    "Nova Loja", null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, null, null);
+
+            StoreSettings result = service.updateSettings(request);
+
+            assertThat(result.getStoreName()).isEqualTo("Nova Loja");
+            verify(repository).save(any(StoreSettings.class));
+        }
+
+        @Test
+        @DisplayName("Deve atualizar taxa de entrega")
+        void shouldUpdateDeliveryFee() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            UpdateStoreSettingsRequest request = new UpdateStoreSettingsRequest(
+                    null, null, null, null, null, null, null, null,
+                    new BigDecimal("10.00"), null, null, null, null, null, null, null, null);
+
+            StoreSettings result = service.updateSettings(request);
+
+            assertThat(result.getDeliveryFee()).isEqualByComparingTo(new BigDecimal("10.00"));
+        }
+
+        @Test
+        @DisplayName("Deve manter valores não informados")
+        void shouldKeepUnchangedValues() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            UpdateStoreSettingsRequest request = new UpdateStoreSettingsRequest(
+                    "Nova Loja", null, null, null, null, null, null, null,
+                    null, null, null, null, null, null, null, null, null);
+
+            StoreSettings result = service.updateSettings(request);
+
+            assertThat(result.getDeliveryFee()).isEqualByComparingTo(new BigDecimal("5.00"));
+            assertThat(result.getIsOpen()).isTrue();
+        }
     }
 
-    @Test
-    @DisplayName("Should toggle delivery status")
-    void toggleDelivery_Success() {
-        // Arrange
-        when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
-        when(repository.save(any(StoreSettings.class))).thenReturn(testSettings);
+    @Nested
+    @DisplayName("toggleOpen")
+    class ToggleOpen {
 
-        // Act
-        StoreSettings result = service.toggleDelivery(false);
+        @Test
+        @DisplayName("Deve fechar a loja")
+        void shouldCloseStore() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Assert
-        verify(repository).save(any(StoreSettings.class));
+            StoreSettings result = service.toggleOpen(false);
+
+            assertThat(result.getIsOpen()).isFalse();
+            verify(repository).save(any(StoreSettings.class));
+        }
+
+        @Test
+        @DisplayName("Deve abrir a loja")
+        void shouldOpenStore() {
+            testSettings.setIsOpen(false);
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            StoreSettings result = service.toggleOpen(true);
+
+            assertThat(result.getIsOpen()).isTrue();
+        }
     }
 
-    @Test
-    @DisplayName("Should calculate delivery fee")
-    void calculateDeliveryFee_Normal() {
-        // Arrange
-        when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+    @Nested
+    @DisplayName("toggleDelivery")
+    class ToggleDelivery {
 
-        // Act
-        BigDecimal fee = service.calculateDeliveryFee(new BigDecimal("50.00"));
+        @Test
+        @DisplayName("Deve desabilitar delivery")
+        void shouldDisableDelivery() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Assert
-        assertThat(fee).isEqualByComparingTo(new BigDecimal("5.00"));
+            StoreSettings result = service.toggleDelivery(false);
+
+            assertThat(result.getDeliveryEnabled()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Deve habilitar delivery")
+        void shouldEnableDelivery() {
+            testSettings.setDeliveryEnabled(false);
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+            when(repository.save(any(StoreSettings.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            StoreSettings result = service.toggleDelivery(true);
+
+            assertThat(result.getDeliveryEnabled()).isTrue();
+        }
     }
 
-    @Test
-    @DisplayName("Should return zero delivery fee above threshold")
-    void calculateDeliveryFee_FreeDelivery() {
-        // Arrange
-        when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+    @Nested
+    @DisplayName("calculateDeliveryFee")
+    class CalculateDeliveryFee {
 
-        // Act
-        BigDecimal fee = service.calculateDeliveryFee(new BigDecimal("150.00"));
+        @Test
+        @DisplayName("Deve retornar taxa de entrega normal")
+        void shouldReturnNormalDeliveryFee() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
 
-        // Assert
-        assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
+            BigDecimal fee = service.calculateDeliveryFee(new BigDecimal("50.00"));
+
+            assertThat(fee).isEqualByComparingTo(new BigDecimal("5.00"));
+        }
+
+        @Test
+        @DisplayName("Deve retornar zero acima do limite de frete grátis")
+        void shouldReturnZeroAboveThreshold() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+
+            BigDecimal fee = service.calculateDeliveryFee(new BigDecimal("150.00"));
+
+            assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
+        }
+
+        @Test
+        @DisplayName("Deve retornar zero exatamente no limite de frete grátis")
+        void shouldReturnZeroAtExactThreshold() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+
+            BigDecimal fee = service.calculateDeliveryFee(new BigDecimal("100.00"));
+
+            assertThat(fee).isEqualByComparingTo(BigDecimal.ZERO);
+        }
     }
 
-    @Test
-    @DisplayName("Should calculate PIX discount")
-    void calculatePixDiscount_Success() {
-        // Arrange
-        when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+    @Nested
+    @DisplayName("calculatePixDiscount")
+    class CalculatePixDiscount {
 
-        // Act
-        BigDecimal discount = service.calculatePixDiscount(new BigDecimal("100.00"));
+        @Test
+        @DisplayName("Deve calcular desconto PIX de 5%")
+        void shouldCalculate5PercentDiscount() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
 
-        // Assert
-        assertThat(discount).isEqualByComparingTo(new BigDecimal("5.00")); // 5% of 100
+            BigDecimal discount = service.calculatePixDiscount(new BigDecimal("100.00"));
+
+            assertThat(discount).isEqualByComparingTo(new BigDecimal("5.00"));
+        }
+
+        @Test
+        @DisplayName("Deve calcular desconto PIX para valores diferentes")
+        void shouldCalculateDiscountForDifferentValues() {
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+
+            BigDecimal discount = service.calculatePixDiscount(new BigDecimal("200.00"));
+
+            assertThat(discount).isEqualByComparingTo(new BigDecimal("10.00"));
+        }
+
+        @Test
+        @DisplayName("Deve retornar zero quando desconto PIX é nulo")
+        void shouldReturnZeroWhenPixDiscountIsNull() {
+            testSettings.setPixDiscountPercent(null);
+            when(repository.findFirstByOrderByUpdatedAtDesc()).thenReturn(Optional.of(testSettings));
+
+            BigDecimal discount = service.calculatePixDiscount(new BigDecimal("100.00"));
+
+            assertThat(discount).isEqualByComparingTo(BigDecimal.ZERO);
+        }
     }
 }
